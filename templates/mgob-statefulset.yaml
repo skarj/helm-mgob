@@ -1,0 +1,113 @@
+apiVersion: apps/v1beta2
+kind: StatefulSet
+metadata:
+  labels:
+    app: {{ template "mgob.name" . }}
+    chart: {{ template "mgob.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  name: {{ template "mgob.fullname" . }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "mgob.name" . }}
+      release: {{ .Release.Name }}
+  serviceName: {{ template "mgob.fullname" . }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ template "mgob.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+{{- if and .Values.backup.mongo.secret.name .Values.backup.mongo.secret.key }}
+      initContainers:
+      - name: replace-password
+        image: busybox
+        command: [
+          "sh",
+          "-ce",
+          "cp /config-orig/mongo-backup.yml /config/mongo-backup.yml &&
+           sed -i \"s/<password>/$MONGODB_ROOT_PASSWORD/g\" /config/mongo-backup.yml"]
+        env:
+        - name: MONGODB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.backup.mongo.secret.name }}
+              key: {{ .Values.backup.mongo.secret.key }}
+        volumeMounts:
+        - name: mgob-config
+          mountPath: /config
+        - name: configmap
+          mountPath: /config-orig
+{{- end }}
+      containers:
+      - name: {{ template "mgob.fullname" . }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.service.internalPort }}
+        volumeMounts:
+        - name: "mgob-storage"
+          mountPath: "/storage"
+        - name: "mgob-tmp"
+          mountPath: "/tmp"
+        - name: "mgob-tmp"
+          mountPath: "/data"
+        - name: "mgob-config"
+          mountPath: "/config"
+        - name: "gcloud-key"
+          mountPath: "/gcloud"
+          readOnly: true
+      volumes:
+      - name: "mgob-config"
+        emptyDir: {}
+      - name: "configmap"
+        configMap:
+          name: {{ template "mgob.fullname" . }}
+      - name: "gcloud-key"
+        secret:
+          secretName: {{ .Values.backup.gcloud.keysecret }}
+  volumeClaimTemplates:
+  - metadata:
+      name: mgob-storage
+      annotations:
+        {{- range $key, $value := .Values.storage.longTerm.annotations }}
+          {{ $key }}: {{ $value }}
+        {{- end }}
+    spec:
+      accessModes:
+      {{- range .Values.storage.longTerm.accessModes }}
+        - {{ . | quote }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.storage.longTerm.size }}
+    {{- if .Values.storage.longTerm.storageClass }}
+    {{- if (eq "-" .Values.storage.longTerm.storageClass) }}
+      storageClassName: ""
+    {{- else }}
+      storageClassName: "{{ .Values.storage.longTerm.storageClass }}"
+    {{- end }}
+    {{- end }}
+  - metadata:
+      name: mgob-tmp
+      annotations:
+        {{- range $key, $value := .Values.storage.tmp.annotations }}
+          {{ $key }}: {{ $value }}
+        {{- end }}
+    spec:
+      accessModes:
+      {{- range .Values.storage.tmp.accessModes }}
+        - {{ . | quote }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.storage.tmp.size }}
+    {{- if .Values.storage.tmp.storageClass }}
+    {{- if (eq "-" .Values.storage.tmp.storageClass) }}
+      storageClassName: ""
+    {{- else }}
+      storageClassName: "{{ .Values.storage.tmp.storageClass }}"
+    {{- end }}
+    {{- end }}

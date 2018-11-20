@@ -1,0 +1,61 @@
+image:
+  repository: stefanprodan/mgob
+  pullPolicy: IfNotPresent
+  tag: edge
+
+backup:
+  mongo: {}
+    # host: "host"
+    # port: 27017
+    # database: "dbname"
+    # username: "root"
+    # secret:
+    #   name: "mongodb-mongodb-replicaset-admin"
+    #   key: "password"
+    # params: "--authenticationDatabase admin"
+
+  scheduler: {}
+    # cron: "00 05 * * *"
+    # retention: 7
+    # timeout: 60
+
+  gcloud: {}
+    # bucket: "backup"
+    # keysecret: "backup-bucket-credentials"
+
+  slack:
+    enabled: false
+  #   url: "https://hooks.slack.com/services/..."
+  #   channel: devops
+  #   username: notification
+  #   warnOnly: true
+
+service:
+  name: mgob
+  externalPort: 8090
+  internalPort: 8090
+
+selector:
+  role: mongo-backup
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+storage:
+  longTerm:
+    accessModes:
+    - "ReadWriteOnce"
+    storageClass: ""
+    size: 10Gi
+    annotations: {}
+  tmp:
+    accessModes:
+    - "ReadWriteOnce"
+    storageClass: ""
+    size: 3Gi
+    annotations: {}

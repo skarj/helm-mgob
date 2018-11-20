@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: {{ template "mgob.name" . }}
+    chart: {{ template "mgob.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  name: {{ template "mgob.fullname" . }}
+data:
+  mongo-backup.yml: |
+    target:
+      host: {{ .Values.backup.mongo.host | quote }}
+      port: {{ .Values.backup.mongo.port }}
+{{- if .Values.backup.mongo.database }}
+      database: {{ .Values.backup.mongo.database }}
+{{- end }}
+      username: {{ .Values.backup.mongo.username }}
+{{- if and .Values.backup.mongo.secret.name .Values.backup.mongo.secret.key }}
+      password: <password>
+{{- end }}
+      params: {{ .Values.backup.mongo.params | quote }}
+
+    scheduler:
+      cron: {{ .Values.backup.scheduler.cron | quote }}
+      retention: {{ .Values.backup.scheduler.retention }}
+      timeout: {{ .Values.backup.scheduler.timeout }}
+
+    gcloud:
+      bucket: {{ .Values.backup.gcloud.bucket | quote }}
+      keyFilePath: /gcloud/credentials.json
+
+{{- if .Values.backup.slack.enabled }}
+    slack:
+      url: {{ .Values.backup.slack.url | quote }}
+      channel: {{ .Values.backup.slack.channel }}
+      username: {{ .Values.backup.slack.username }}
+      warnOnly: {{ .Values.backup.slack.warnOnly }}
+{{- end }}
